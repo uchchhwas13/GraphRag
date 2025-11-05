@@ -3,7 +3,7 @@ from langchain_community.document_loaders import TextLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_neo4j import Neo4jGraph
-from langchain_community.graphs import Neo4jGraph as LangChainNeo4jGraph
+from  langchain_core.prompts.chat import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
 
@@ -29,13 +29,23 @@ llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0)
 print("Extracting knowledge graph from documents...")
 print("Note: This may take a while as Gemini processes each document chunk...")
 
+
+# LLMGraphTransformer expects JSON in this specific format:
+# [{"head": "...", "head_type": "...", "relation": "...", "tail": "...", "tail_type": "..."}]
+# And it uses {input} as the variable name, not {text}
+extraction_prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a top-tier algorithm designed for extracting information in structured formats to build a knowledge graph. Your task is to identify entities and relations from the given text. You must generate the output in a JSON format containing a list with JSON objects. Each object should have the keys: \"head\", \"head_type\", \"relation\", \"tail\", and \"tail_type\". The \"head\" key must contain the text of the extracted entity. The \"head_type\" key must contain the type of the extracted head entity (one of: Person, Organization, Location, Event, Date, Concept, Theory). The \"relation\" key must contain the type of relation between the \"head\" and the \"tail\" (one of: WORKS_AT, BORN_IN, LIVES_IN, DEVELOPED, WON, INVOLVED_IN, RELATED_TO). The \"tail\" key must represent the text of an extracted entity which is the tail of the relation, and the \"tail_type\" key must contain the type of the tail entity. Attempt to extract as many entities and relations as you can. Return ONLY valid JSON, no explanations."),
+    ("human", "Extract entities and relationships from the following text:\n\n{input}")
+])
+
 try:
     # Try with explicit prompt customization
     # LLMGraphTransformer may have issues with Gemini, so let's check what happens
     llm_transformer = LLMGraphTransformer(
         llm=llm,
         allowed_nodes=["Person", "Organization", "Location", "Event", "Date", "Concept", "Theory"],
-        allowed_relationships=["WORKS_AT", "BORN_IN", "LIVES_IN", "DEVELOPED", "WON", "INVOLVED_IN", "RELATED_TO"]
+        allowed_relationships=["WORKS_AT", "BORN_IN", "LIVES_IN", "DEVELOPED", "WON", "INVOLVED_IN", "RELATED_TO"],
+        prompt=extraction_prompt
     )
     
     print("Converting documents to graph... (this may take a minute)")
@@ -74,82 +84,8 @@ if graph_documents:
     if total_nodes == 0 and total_relationships == 0:
         print("\n⚠️  WARNING: No entities or relationships extracted by LLMGraphTransformer!")
         print("This likely means LLMGraphTransformer is not compatible with Gemini's response format.")
-        print("\nAttempting manual extraction using Gemini directly...")
-        
-        # Manual extraction as fallback
-        from langchain_community.graphs.graph_document import GraphDocument, Node, Relationship
-        
-        manually_extracted_docs = []
-        for text_doc in texts:
-            extraction_prompt = f"""Extract entities and relationships from the following text and return them in a structured format.
-
-Text: {text_doc.page_content[:1000]}
-
-Extract:
-1. Entities (people, places, organizations, concepts, dates) with their types
-2. Relationships between entities
-
-Format your response as JSON with this structure:
-{{
-  "entities": [
-    {{"id": "unique_id", "name": "Entity Name", "type": "Person|Organization|Location|Event|Date|Concept"}}
-  ],
-  "relationships": [
-    {{"source": "entity_id", "target": "entity_id", "type": "RELATIONSHIP_TYPE"}}
-  ]
-}}
-
-Only return valid JSON:"""
-            
-            try:
-                response = llm.invoke(extraction_prompt).content
-                
-                # Try to parse JSON from response
-                import json
-                import re
-                
-                # Extract JSON from response (might be wrapped in markdown)
-                json_match = re.search(r'\{.*\}', response, re.DOTALL)
-                if json_match:
-                    data = json.loads(json_match.group())
-                    
-                    # Create nodes and relationships
-                    nodes = []
-                    node_map = {}
-                    for entity in data.get("entities", []):
-                        node = Node(id=entity.get("id", entity.get("name")), 
-                                   type=entity.get("type", "Entity"),
-                                   properties={"name": entity.get("name")})
-                        nodes.append(node)
-                        node_map[entity.get("id", entity.get("name"))] = node
-                    
-                    relationships = []
-                    for rel in data.get("relationships", []):
-                        source_node = node_map.get(rel.get("source"))
-                        target_node = node_map.get(rel.get("target"))
-                        if source_node and target_node:
-                            relationship = Relationship(source=source_node,
-                                                      target=target_node,
-                                                      type=rel.get("type", "RELATED_TO"))
-                            relationships.append(relationship)
-                    
-                    if nodes or relationships:
-                        graph_doc = GraphDocument(nodes=nodes, relationships=relationships, source=text_doc)
-                        manually_extracted_docs.append(graph_doc)
-                        print(f"  Manually extracted {len(nodes)} nodes and {len(relationships)} relationships from chunk")
-            except Exception as e:
-                print(f"  Error in manual extraction: {e}")
-                continue
-        
-        if manually_extracted_docs:
-            print(f"\n✅ Manually extracted {len(manually_extracted_docs)} graph documents")
-            graph_documents = manually_extracted_docs
-            # Recalculate totals
-            total_nodes = sum(len(doc.nodes) if doc.nodes else 0 for doc in graph_documents)
-            total_relationships = sum(len(doc.relationships) if doc.relationships else 0 for doc in graph_documents)
-            print(f"Total: {total_nodes} nodes, {total_relationships} relationships")
-        else:
-            print("\n❌ Manual extraction also failed. Cannot proceed without graph data.")
+        print("\n❌ Cannot proceed without graph data. Exiting.")
+        exit(1)
 else:
     print("WARNING: No graph documents extracted!")
 
@@ -282,9 +218,9 @@ print("Querying the knowledge graph...")
 print("="*50 + "\n")
 
 queries = [
-    "what is birthdate of Albert Einstein? ",
+    "what is  birthdate of Albert Einstein? ",
     "When did he won the nobel prize?",
-    "Was he involved in Manhattan project?"
+    "Was Albert Einstein involved in Manhattan project?"
 ]
 
 for query in queries:
