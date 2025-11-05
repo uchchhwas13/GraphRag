@@ -1,0 +1,10 @@
+langchain_text_splitters
+langchain_community
+langchain_neo4j
+langchain_google_genai
+langchain_experimental
+python-dotenv
+llama-index-core
+llama-index-graph-stores-neo4j
+llama-index-llms-langchain
+google-generativeai
