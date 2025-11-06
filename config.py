@@ -14,9 +14,9 @@ LLM_MODEL = "gemini-flash-latest"
 LLM_TEMPERATURE = 0
 
 # Neo4j Configuration
-NEO4J_URL = "neo4j://127.0.0.1:7687"
-NEO4J_USERNAME = "neo4j"
-NEO4J_PASSWORD = "cefalo2025"
+NEO4J_URL = os.getenv("NEO4J_URL")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # Document Processing Configuration
 CHUNK_SIZE = 200
