@@ -1,8 +1,9 @@
 """Query operations for the knowledge graph."""
 from langchain_neo4j import Neo4jGraph
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
-def query_graph(question: str, graph: Neo4jGraph, llm) -> str:
+def query_graph(question: str, graph: Neo4jGraph, llm: ChatGoogleGenerativeAI) -> str:
     """Query the knowledge graph and generate an answer.
     
     Args:
