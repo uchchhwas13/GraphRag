@@ -13,7 +13,8 @@ def create_neo4j_graph() -> Neo4jGraph:
     return Neo4jGraph(
         url=NEO4J_URL,
         username=NEO4J_USERNAME,
-        password=NEO4J_PASSWORD
+        password=NEO4J_PASSWORD,
+        database="neo4j"
     )
 
 
