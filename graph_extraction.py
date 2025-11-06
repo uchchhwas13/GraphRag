@@ -27,7 +27,7 @@ def create_extraction_prompt() -> ChatPromptTemplate:
             "The \"tail\" key must represent the text of an extracted entity which is the tail of the relation, "
             "and the \"tail_type\" key must contain the type of the tail entity. "
             "Attempt to extract as many entities and relations as you can. "
-            "Return ONLY valid JSON, no explanations."
+            "Return ONLY valid JSON"
         ),
         ("human", "Extract entities and relationships from the following text:\n\n{input}")
     ])
@@ -109,7 +109,6 @@ def analyze_graph_documents(graph_documents: list[GraphDocument]) -> tuple[int, 
         if total_nodes == 0 and total_relationships == 0:
             print("\n⚠️  WARNING: No entities or relationships extracted by LLMGraphTransformer!")
             print("This likely means LLMGraphTransformer is not compatible with Gemini's response format.")
-            print("\n❌ Cannot proceed without graph data. Exiting.")
             return total_nodes, total_relationships
     else:
         print("WARNING: No graph documents extracted!")
